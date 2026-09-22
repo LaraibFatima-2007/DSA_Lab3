@@ -4,98 +4,115 @@
  * Author: Laraib Fatima
  * Date: 22-09-2026
  */
-
 #include <iostream>
 #include <string>
-
 using namespace std;
-
 
 class StringPool {
 private:
-    string* pool;    // Pointer to dynamic array
-    int capacity;    // Maximum capacity of the array
-    int currentCount;// Number of strings currently stored
+    string** pool;    // Dynamic array of string pointers
+    int currentSize;  // Current number of strings in pool
+    int maxSize;      // Maximum size of pool
 
 public:
-    
+    // Constructor
     StringPool() {
-        capacity = 5;
-        currentCount = 0;
-        pool = new string[capacity]; 
+        maxSize = 5;
+        currentSize = 0;
+        pool = new string*[maxSize];
+        for (int i = 0; i < maxSize; i++) {
+            pool[i] = nullptr;
+        }
     }
 
-    // Destructor
+    // Destructor to clean up all allocated memory
     ~StringPool() {
+        for (int i = 0; i < maxSize; i++) {
+            if (pool[i] != nullptr) {
+                delete pool[i];
+                pool[i] = nullptr;
+            }
+        }
         delete[] pool;
     }
 
-    // Function to add a string to the pool
+    // Method to add a string to the pool
     void addString(string str) {
-        if (currentCount < capacity) {
-            pool[currentCount] = str;
-            currentCount++;
-            cout << "Added: \"" << str << "\"" << endl;
+        if (currentSize < maxSize) {
+            pool[currentSize] = new string(str);
+            cout << "Added: \"" << *pool[currentSize] << "\" at index " << currentSize << endl;
+            currentSize++;
         } else {
             cout << "Pool is full! Cannot add \"" << str << "\"" << endl;
         }
     }
 
-    // Removing a string without clearing memory 
+    // Removes reference without freeing memory (creates a memory leak)
     void removeString(int index) {
-        if (index >= 0 && index < currentCount) {
-            cout << "Removing element at index " << index << ": \"" << pool[index] << "\"" << endl;
+        if (index >= 0 && index < currentSize) {
+            cout << "[LEAK CREATED] Removed reference at index " << index 
+                 << " (\"" << *pool[index] << "\") WITHOUT deleting memory!" << endl;
             
-            // Shift elements to the left
-            for (int i = index; i < currentCount - 1; i++) {
+            // Shift pointers left without deleting pool[index]
+            for (int i = index; i < currentSize - 1; i++) {
                 pool[i] = pool[i + 1];
             }
-            currentCount--; 
+            pool[currentSize - 1] = nullptr; // important: original string memory still leaked in heap!
+            currentSize--;
         } else {
             cout << "Invalid index!" << endl;
         }
     }
 
-    // Function to print current strings
-    void display() {
-        cout << "\n Current Strings in Pool " << endl;
-        if (currentCount == 0) {
-            cout << "Pool is empty." << endl;
-        } else {
-            for (int i = 0; i < currentCount; i++) {
-                cout << "Index " << i << ": " << pool[i] << endl;
+    // Safely removes element and frees memory to prevent leak
+    void safeRemoveString(int index) {
+        if (index >= 0 && index < currentSize) {
+            cout << "[MEMORY FREED] Safely deleted string \"" << *pool[index] 
+                 << "\" at index " << index << endl;
+            delete pool[index]; // Free memory
+            
+            // Shift pointers left
+            for (int i = index; i < currentSize - 1; i++) {
+                pool[i] = pool[i + 1];
             }
+            pool[currentSize - 1] = nullptr;
+            currentSize--;
+        } else {
+            cout << "Invalid index!" << endl;
         }
-        cout << "-------------------------------\n" << endl;
     }
 
-    // Function to safely clear and reset dynamic memory
-    void fixAndCleanMemory() {
-        delete[] pool;               // Freee array
-        pool = new string[capacity]; // Allocate a fresh clean array
-        currentCount = 0;
-        cout << "Memory safely freed and pool reset!" << endl;
+    // Display current contents of the pool
+    void display() {
+        cout << "\n--- Current Strings in Pool (" << currentSize << "/" << maxSize << ") ---" << endl;
+        if (currentSize == 0) {
+            cout << "Pool is empty." << endl;
+        } else {
+            for (int i = 0; i < currentSize; i++) {
+                if (pool[i] != nullptr) {
+                    cout << "Index " << i << ": " << *pool[i] << endl;
+                }
+            }
+        }
+        cout << "-------------------------------------------\n" << endl;
     }
 };
 
 int main() {
     StringPool myPool;
 
-    //  Add strings to dynamic memory
-    cout << " Adding Strings " << endl;
+    cout << "=== 1. Adding Strings ===" << endl;
     myPool.addString("Apple");
     myPool.addString("Banana");
     myPool.addString("Cherry");
     myPool.display();
 
-    //  Remove a string 
-    cout << " Removing String " << endl;
-    myPool.removeString(1); 
+    cout << "=== 2. Removing String (Demonstrating Memory Leak) ===" << endl;
+    myPool.removeString(1); // Removes "Banana" without deleting heap memory
     myPool.display();
 
-    //  Clean up dynamic memory
-    cout << " Cleaning Memory " << endl;
-    myPool.fixAndCleanMemory();
+    cout << "=== 3. Safely Removing String (Fixing Memory Leaks) ===" << endl;
+    myPool.safeRemoveString(0); //  deletes "Apple"
     myPool.display();
 
     return 0;
